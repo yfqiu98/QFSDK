@@ -1,0 +1,589 @@
+//*****************************************************************************************************
+//
+//	1.2 Declaration - TSCNON System Parameters
+//
+//*****************************************************************************************************
+Int	nn_layer   = 4;               		// Total Number of network layer
+Int	nn_input   = 41;              		// Number of input neurones
+Int	nn_hidden1 = 40;              		// Number of neurones on the first hidden layer
+Int	nn_hidden2 = 40;              		// number on the second hidden layer
+Int	nn_output  = 4;               		// number of outputs
+double	trainingData[][45];           		// IMPORTANT! size = nn_input + nn_output
+int	maxTraining = 2000;           		// maximum number of time we will train 
+double	targetRMSE   = 0.000001        		// Set the MSE to 1x10-6
+int	TRAIN_SIZE   = 400;           		// USE 500 TRAINING RECORDS
+int	TSDATA_SIZE  = 505;           		// USE PAST 505 TIME SERIES DATA RECORDS
+uint	stime=0;		// Forecast Start Time
+uint	etime=0;		// Forecast End Time
+uint	Gstime=0;		// System Start Time
+uint	Getime=0;         		// System End Time
+uint	 tlapse=0;		// Forecast Time Lapse
+uint	Gtlapse=0;		// System Time Lapse
+int	nTraining=0;		// Number of training
+int	nTP=0;		// Product number
+string	TPSymbol   = "";              		// Current Trading duct Symbol
+string	TP_Code[5]={ "XAGUSD",  "CORN",   "US30", "AUDUSD", "EURCHF"}; // Product codes 
+int	TP_No[5]={1,2,3,4,5};               		// Product code no      
+int	TP_nD[5]={3,2,1,5,5};               		// Product decimal digits
+double	TP_Norm[5]={60,650,50000,2,2.5};    		// Product normalization value
+double	TP_Range[5]={1.2,25.00,900,0.04,0.04};	// Product daily range
+double	TP_SL[5]={0.3,3,120,0.003,0.003};      	// Stop-loss              
+double	TP_TP[5]={0.3,3,120,0.003,0.003};       	// Target-profit                                       
+int	TSCNON[120];                           		// Identifier of the TSCNON
+int	MAX_TP=5;                      		// Max NO OF Forecasting TPs
+bool	bPass=false;		// Check for forecast day
+int	nRound=0;		// Number of round
+int	today;		// Today
+int	DoW;		// Date-of-Week
+bool	bWorkDay;		// Check working day
+bool	b_Forecast;		// Check forecast status
+bool	b_PF;		// Check Perforance Analysis status
+bool	b_Skip;		// Check day skip
+
+//*****************************************************************************************************
+//
+//	1.3 Declare Daily Forecast elements
+//
+//*****************************************************************************************************
+int      D1_YEAR;
+int      D1_MONTH;
+int      D1_DAY;
+double   D0_OPEN;
+double   D1_OPEN;
+double   D1_HIGH;
+double   D1_LOW;
+double   D1_CLOSE;
+double   FC_AOPEN;
+double   FC_AHIGH;
+double   FC_ALOW;
+double   FC_ACLOSE;
+double   FC_AJOPEN;
+double   FC_AJHIGH;
+double   FC_AJLOW;
+double   FC_AJCLOSE;
+double   FC_Diff;   
+double   FC_NOPEN;
+double   FC_NHIGH;
+double   FC_NLOW;
+double   FC_NCLOSE;     
+double   FC_RANGE; 
+double   MSE;
+bool     bMatch;
+
+// Daily Forecast Display Items
+string   PName_EN;
+string   PName_CH;
+string   PCode;
+string   PCat_EN;
+string   PCat_CH;
+double   TP_Low;
+double   SL_Low;
+double   TP_High;
+double   SL_High;
+double   FC_MID;
+double   QPL1;
+double   QPL2;
+double   QPL3;
+double   QPL4;
+double   QPL5;
+double   QPL6;
+double   QPL7;
+double   QPL8;
+bool     bQPLFound;
+
+//*****************************************************************************************************
+//
+//	1.4 Program Init() Class
+//
+//*****************************************************************************************************
+int init() {
+   int      i,d,t,k,q,nL,nt,nD,ToW;
+   
+   // Declare Read DT Data
+   int        RDT_YY;
+   int        RDT_MM;
+   int        RDT_DD;
+   double     RDT_OP;
+   double     RDT_HI;
+   double     RDT_LO;
+   double     RDT_CL;   
+   
+   // Declare Read HL Data
+   int        RHL_YY;
+   int        RHL_MM;
+   int        RHL_DD;
+   double     RHL_HI;
+   double     RHL_LO;
+
+   // Declare Read PF Data
+   int        RPF_YY;
+   int        RPF_MM;
+   int        RPF_DD;
+   double     RPF_OP;
+   double     RPF_HI;
+double     RPF_LO;
+   double     RPF_CL;   
+   double     RPF_FH;
+   double     RPF_FL;
+   double     RPF_EH;   
+   double     RPF_EL;
+   double     RPF_AE;
+   double     RPF_PE;
+      
+   // Declare FC_DT Arrays
+   int        DT_YY[505];
+   int        DT_MM[505];
+   int        DT_DD[505];
+   double     DT_OP[505];
+   double     DT_HI[505];
+   double     DT_LO[505];
+   double     DT_CL[505];
+   
+   // Declare FC_HL Arrays
+   int        HL_YY[505];
+   int        HL_MM[505];
+   int        HL_DD[505];
+   double     HL_HI[505];
+   double     HL_LO[505];
+   
+   // Declare FC_PF Arrays
+   int        PF_YY[505];
+   int        PF_MM[505];
+   int        PF_DD[505];
+   double     PF_OP[505];
+   double     PF_HI[505];
+   double     PF_LO[505];
+   double     PF_CL[505];
+   double     PF_FH[505];
+   double     PF_FL[505];
+   double     PF_EH[505];
+   double     PF_EL[505];
+   double     PF_AE[505];
+   double     PF_PE[505] ;  
+
+// Declare 21 QPLs for network training
+   double     T_QPL[21];
+
+   //*****************************************************************************************************
+   //
+   //     2. Check for Forecast day
+   //
+   //*****************************************************************************************************
+   // Declare NQPR AND QPL ARRAYS
+   double     NQPR[5][21];   // Array to store ALL NQPR (each 21 energy levels) 
+   
+   // Set Global Start Time
+   Gstime       = GetTickCount();
+   
+   // Get Current Day
+   today          = TimeDay(TimeLocal());
+   DoW            = TimeDayOfWeek(TimeLocal());   
+   
+   // Check Whether Need to Forecast or NOT
+   b_Forecast     = false;
+   if ((DoW>0) && (DoW<6))
+   {
+      // Mon - Fri -> Forecast
+      b_Forecast  = true;
+   } 
+   
+   // Prepare for Foreast if needed
+   if (b_Forecast)
+   { 
+      // Read ALL NQPR into array NQPR[][]
+      ResetLastError();
+      NQPR_FileName      = "FX_NQPR.csv";   
+      NQPR_FileHandle    = FileOpen(NQPR_Directory+"//"+NQPR_FileName,FILE_COMMON|FILE_READ|FILE_CSV,',');
+    
+      if(NQPR_FileHandle!=INVALID_HANDLE)
+      {
+         for (nTP=0;nTP<MAX_TP;nTP++)
+         {
+            // Get ALL the 21 NQPR for the first 20 Energy Levels
+            for (nL=0;nL<21;nL++)
+            {
+               NQPR[nTP][nL]  = StringToDouble (FileReadString(NQPR_FileHandle));
+            }
+         } // Loop over ALL products
+      } // Valid NQPR File Handle
+      // Close NQPR File
+      FileClose(NQPR_FileHandle);    
+   
+      // OPEN THE DAILY FOECAST DATAFILE
+      DL_FileName      = "FC_DAILY.csv";     
+      FileDelete(DL_Directory+"//"+DL_FileName,FILE_COMMON);
+      ResetLastError();
+   
+      // CREATE FC_DL HANDLE
+      DL_FileHandle    = FileO-pen(DL_Directory+"//"+DL_FileName,FILE_COMMON|FILE_READ|FILE_WRITE|FILE_CSV,',');
+   
+      // Write Header Line
+      FileWrite(DL_FileHandle,"TP_No","TP_Code2","FC_LOW","TP_LOW","SL_LOW","FC_HIGH","TP_HIGH","SL_HIGH",
+            "QPL#1","QPL#2","QPL#3","QPL#4","QPL#5","QPL#6","QPL#7","QPL#8");
+   } // b_Forecast is TRUE
+
+   // CREATE Daily DPF_HANDLE
+   DPF_FileName      = "PF_DAILY.csv";   
+   FileDelete(DL_Directory+"//"+DPF_FileName,FILE_COMMON);
+   ResetLastError();
+   DPF_FileHandle    = FileO-pen(DL_Directory+"//"+DPF_FileName,FILE_COMMON|FILE_READ|FILE_WRITE|FILE_CSV,',');
+   
+   // Write Header Line
+   FileWrite(DPF_FileHandle,"YEAR","MONTH","DAY",
+                            "TP_No","TP_CODE2","TP_CCat","TP_ECat","TP_CNAME","TP_ESNAME","TP_ELNAME","Digit",
+                            "OPEN","HIGH","LOW","CLOSE",
+                            "FC_HIGH","FC_LOW",
+                            "ERR_HIGH","ERR_LOW","AV_ERR","%ERROR");   
+
+
+   //********************************************************************************************************
+   //
+   //   3. LOOP OVER ALL TP
+   //
+   //********************************************************************************************************
+   for (nTP=0;nTP<MAX_TP;nTP++)
+   {
+      TPSymbol    = TP_Code[nTP];
+      stime       = GetTickCount();
+      nTraining   = 0;
+      nt          = 0;
+      b_Skip      = false; 
+      // Check whether the current D1 Bar is today
+      if (TimeDay(iTime(TPSymbol,PERIOD_D1,0)) == today)
+      {   // Check previous D1 bar is Mon-Fri or NOT
+          nD   = 1;
+          bWorkDay = false;
+          while (!bWorkDay)
+          {
+            ToW =TimeDayOfWeek(iTime(TPSymbol,PERIOD_D1,nD));
+            if ((ToW>0) && (ToW<6))
+            {
+               bWorkDay = true;
+            }else{
+               b_Skip = true;              
+               nD++;
+            }         
+          }
+          // Today D1 bar exist, get Today OPEN, D-1 OPEN HIGH LOW CLOSE VOL
+          D0_OPEN    = iOpen(TPSymbol,PERIOD_D1,0);
+          D1_YEAR    = TimeYear(iTime(TPSymbol,PERIOD_D1,nD));     
+          D1_MONTH   = TimeMonth(iTime(TPSymbol,PERIOD_D1,nD));     
+          D1_DAY     = TimeDay(iTime(TPSymbol,PERIOD_D1,nD));     
+          D1_OPEN    = iOpen(TPSymbol,PERIOD_D1,nD);
+          D1_HIGH    = iHigh(TPSymbol,PERIOD_D1,nD);
+          D1_LOW     = iLow(TPSymbol,PERIOD_D1,nD);
+          D1_CLOSE   = iClose(TPSymbol,PERIOD_D1,nD);
+      }else
+      {
+          // Check previous D1 bar is Mon-Fri or NOT
+          nD   = 0;
+          bWorkDay = false;
+          while (!bWorkDay)
+          {
+            ToW =TimeDayOfWeek(iTime(TPSymbol,PERIOD_D1,nD));
+            if ((ToW>0) && (ToW<6))
+            {
+               bWorkDay = true;
+            }else{
+               b_Skip = true;
+               nD++;
+            }         
+          }
+          // Today D1 Bar does not exist, get yesterday data and set today open as yesterday close
+          D1_YEAR    = TimeYear(iTime(TPSymbol,PERIOD_D1,nD));     
+          D1_MONTH   = TimeMonth(iTime(TPSymbol,PERIOD_D1,nD));               
+          D1_DAY     = TimeDay(iTime(TPSymbol,PERIOD_D1,nD));     
+          D1_OPEN    = iOpen(TPSymbol,PERIOD_D1,nD);
+          D1_HIGH    = iHigh(TPSymbol,PERIOD_D1,nD);
+          D1_LOW     = iLow(TPSymbol,PERIOD_D1,nD);
+          D1_CLOSE   = iClose(TPSymbol,PERIOD_D1,nD);
+          D0_OPEN    = D1_CLOSE;                     
+      }
+
+      //********************************************************************************************************
+      //
+      //   4.1 READ FC_DT FILE
+      //
+      //********************************************************************************************************
+      Print("#",nTP," ",TPSymbol,": 1.1 READING FC_DT FILE ...");   
+      ResetLastError();   
+      DT_FileName     = TP_No[nTP]+" "+TPSymbol+"_DT.csv";   
+      DT_FileHandle   = FileOpen(DT_Directory+"//"+DT_FileName,FILE_COMMON|FILE_READ|FILE_CSV,',');
+      Print("#",nTP," ",TPSymbol,": 1.2 READING FC_HL FILE ...");   
+      ResetLastError();   
+      HL_FileName     = TP_No[nTP]+" "+TPSymbol+"_HL.csv";   
+      HL_FileHandle   = FileOpen(HL_Directory+"//"+HL_FileName,FILE_COMMON|FILE_READ|FILE_CSV,',');
+      Print("#",nTP," ",TPSymbol,": 1.3 READING FC_PF FILE ...");   
+      ResetLastError();   
+      PF_FileName     = TP_No[nTP]+" "+TPSymbol+"_PF.csv";   
+      PF_FileHandle   = FileOpen(PF_Directory+"//"+PF_FileName,FILE_COMMON|FILE_READ|FILE_CSV,',')
+      // READ FC_DT[]   
+      if(DT_FileHandle!=INVALID_HANDLE)
+      {
+         for (t=0;t<TSDATA_SIZE;t++)
+         {
+            // READ FC_DT DATA 
+            RDT_YY  = StringToInteger(FileReadString(DT_FileHandle));
+            RDT_MM  = StringToInteger(FileReadString(DT_FileHandle));
+            RDT_DD  = StringToInteger(FileReadString(DT_FileHandle)); 
+            RDT_OP  = StringToDouble (FileReadString(DT_FileHandle));
+            RDT_HI  = StringToDouble (FileReadString(DT_FileHandle));
+            RDT_LO  = StringToDouble (FileReadString(DT_FileHandle));
+            RDT_CL  = StringToDouble (FileReadString(DT_FileHandle));       
+            // CHECK WHETHER THE FIRST RECORD IS LATEST D1 BAR VALUES
+            if (t==0)
+            {
+               if ((D1_DAY == RDT_DD)||(DoW<2)||(b_Skip))
+               {
+                  //FIRST DATA RECORD IS THE CURRENT D1 BAR, NO NEED TO STORE INTO ARRAY
+                  nt       = 0;
+                  b_PF     = false;                                                                              
+               }else
+               {
+                  //FIRST DATA RECORD IS NOT THE CURRENT D1 BAR, STORE VALUE INTO FIRST ARRAY ELEMENT
+                  nt       = 1;
+                  b_PF     = true;
+                                  
+                  // STORE ALL THE BAR VALUES INTO TS_[0] 
+                  DT_YY[0]   = D1_YEAR;
+                  DT_MM[0]   = D1_MONTH;
+                  DT_DD[0]   = D1_DAY;
+                  DT_OP[0]   = (double)D1_OPEN/TP_Norm[nTP];
+                  DT_HI[0]   = (double)D1_HIGH/TP_Norm[nTP];
+                  DT_LO[0]   = (double)D1_LOW/TP_Norm[nTP];
+                  DT_CL[0]   = (double)D1_CLOSE/TP_Norm[nTP];                                                                                                        
+               }
+            } // Check first record     
+            // Set the Array Values
+            if (nt<TSDATA_SIZE)
+            {
+               DT_YY[nt]   = RDT_YY;
+               DT_MM[nt]   = RDT_MM;
+               DT_DD[nt]   = RDT_DD;
+               DT_OP[nt]   = RDT_OP;
+               DT_HI[nt]   = RDT_HI;
+               DT_LO[nt]   = RDT_LO;
+               DT_CL[nt]   = RDT_CL;
+            } //if (nt<TSDATA_SIZE)
+            
+            // Upcount nt
+            nt++;
+         }  // READING FC_DT DATA RECORDS
+         // Print("Reading ",TPSymbol,"READING FC_DT DATA FILE COMPLETED !!!"); 
+      }else
+      {
+         PrintFormat("Failed to open %s file, Error code = %d",DT_FileName,GetLastError());
+         Print("Reading FC_DT DataFile ERROR!!!");
+      } // CHECK DT_FILEHANDLE 
+      // CLOSE TIME SERIES DATA FILE
+      FileClose(DT_FileHandle);
+
+      //********************************************************************************************************
+      //
+      //   4.2 WRITE FC_DT DATA FILE IF b_PF IS TRUE
+      //
+      //********************************************************************************************************
+      
+      if (b_PF==true)
+      {
+         Print("#",nTP," : ",TPSymbol,": 1.1 WRITING FC_DT DATA FILE ...");
+         FileDelete(DT_Directory+"//"+DT_FileName,FILE_COMMON);   
+         ResetLastError();           
+         DT_FileHandle   = FileO-pen(DT_Directory+"//"+DT_FileName,FILE_COMMON|FILE_READ|FILE_WRITE|FILE_CSV,',');
+    
+         if(DT_FileHandle!=INVALID_HANDLE)
+         {
+            for (t=0;t<TSDATA_SIZE;t++)
+            {
+               FileWrite(DT_FileHandle,DT_YY[t],DT_MM[t],DT_DD[t],
+                  DoubleToString(DT_OP[t],5), DoubleToString(DT_HI[t],5), DoubleToString(DT_LO[t],5), DoubleTo-String(DT_CL[t],5));
+            }          
+         } // TS_FileHandle
+                
+         // CLOSE TIME SERIES DATA FILE
+         FileClose(DT_FileHandle);  
+      } //CHECK bWriteTS
+
+//********************************************************************************************************
+      //
+      //   4.3 READ FC_HL DATA FILE
+      //
+      //********************************************************************************************************
+      
+      if(HL_FileHandle!=INVALID_HANDLE)
+      {
+         for (t=0;t<TSDATA_SIZE;t++)
+         {
+            // READ FC_HL DATA 
+            RHL_YY  = StringToInteger(FileReadString(HL_FileHandle));
+            RHL_MM  = StringToInteger(FileReadString(HL_FileHandle));
+            RHL_DD  = StringToInteger(FileReadString(HL_FileHandle)); 
+            RHL_HI  = StringToDouble (FileReadString(HL_FileHandle));
+            RHL_LO  = StringToDouble (FileReadString(HL_FileHandle));
+                 
+            // CHECK WHETHER IT IS WORKING DAY OR THE FIRST RECORD IS TODAY
+            if (t==0)
+            {
+               if ((RHL_DD == today)|| (TimeDayOfWeek(TimeLocal()) == 0) || (TimeDayOfWeek(TimeLocal())== 6))
+               {
+                  nt       = 0;
+               }else
+               {
+                  nt       = 1;
+                  // STORE ALL THE BAR VALUES INTO TS_[0] 
+                  HL_YY[0]   = TimeYear(TimeLocal());
+                  HL_MM[0]   = TimeMonth(TimeLocal());
+                  HL_DD[0]   = TimeDay(TimeLocal());
+               }
+            } // Check first record
+         
+            // Set the Array Values
+            if (nt<TSDATA_SIZE)
+            {
+               HL_YY[nt]   = RHL_YY;
+               HL_MM[nt]   = RHL_MM;
+               HL_DD[nt]   = RHL_DD;
+               HL_HI[nt]   = RHL_HI;
+               HL_LO[nt]   = RHL_LO;
+            } //if (nt<TSDATA_SIZE)
+            
+            // Upcount nt
+            nt++;
+         }  // READING FC_HL DATA RECORDS
+    
+         // Print("Reading ",TPSymbol,"READING FC_HL DATA FILE COMPLETED !!!");
+    
+      }else
+      {
+         PrintFormat("Failed to open %s file, Error code = %d",HL_FileName,GetLastError());
+         Print("Reading FC_HL DataFile ERROR!!!");
+      } // CHECK HL_FILEHANDLE 
+    
+      // CLOSE FC_HL DATA FILE
+      FileClose(HL_FileHandle);         
+
+      //********************************************************************************************************
+      //
+      //   4.4 READ FC_PF DATA FILE
+      //
+      //********************************************************************************************************
+      if(PF_FileHandle!=INVALID_HANDLE)
+      {
+         for (t=0;t<TSDATA_SIZE;t++)
+         {
+            // READ FC_DT DATA 
+            RPF_YY  = StringToInteger(FileReadString(PF_FileHandle));
+            RPF_MM  = StringToInteger(FileReadString(PF_FileHandle));
+            RPF_DD  = StringToInteger(FileReadString(PF_FileHandle)); 
+            RPF_OP  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_HI  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_LO  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_CL  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_FH  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_FL  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_EH  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_EL  = StringToDouble (FileReadString(PF_FileHandle));    
+            RPF_AE  = StringToDouble (FileReadString(PF_FileHandle));
+            RPF_PE  = StringToDouble (FileReadString(PF_FileHandle));                
+                 
+            // CHECK WHETHER THE FIRST RECORD IS LATEST D1 BAR VALUES
+            if (t==0)
+            {
+               if (!b_PF)
+               {
+                  //FIRST DATA RECORD IS THE CURRENT D1 BAR, NO NEED TO STORE INTO ARRAY
+                  nt       = 0;
+               }else
+               {
+                  //FIRST DATA RECORD IS NOT THE CURRENT D1 BAR, STORE VALUE INTO FIRST ARRAY ELEMENT
+                  nt       = 1;
+                  // STORE ALL THE BAR VALUES INTO TS_[0] 
+                  PF_YY[0]   = D1_YEAR;
+                  PF_MM[0]   = D1_MONTH;
+                  PF_DD[0]   = D1_DAY;
+                  PF_OP[0]   = (double)D1_OPEN;
+                  PF_HI[0]   = (double)D1_HIGH;
+                  PF_LO[0]   = (double)D1_LOW;
+                  PF_CL[0]   = (double)D1_CLOSE;                                                                                                                          
+                  // CHECK WITH HL_YY, HL_MM, HL_DD TO LOCATE HL_HI & HL_LO
+                  bMatch = false;
+                  k      = 0;
+                  while ((!bMatch)&&(k<10))
+                  {
+                     if ((PF_YY[0]==HL_YY[k])&&(PF_MM[0]==HL_MM[k])&&(PF_DD[0]==HL_DD[k]))
+                     {
+                        bMatch = true;
+                       // CALCULATE THE PF_EH, PF_EL, PF_AE, PF_PE
+                        PF_FH[0]    = HL_HI[k];
+                        PF_FL[0]    = HL_LO[k];
+                        PF_EH[0]    = MathAbs(PF_HI[0]-HL_HI[k]);
+                        PF_EL[0]    = MathAbs(PF_LO[0]-HL_LO[k]);
+                        PF_AE[0]    = MathAbs((PF_EH[0]+PF_EL[0])/2);
+                        PF_PE[0]    = MathAbs(PF_AE[0]/PF_CL[0]);
+                     }
+                     k++;
+                  }
+               }
+            } // Check first record
+         
+            // Set the Array Values
+            if (nt<TSDATA_SIZE)
+            {
+               PF_YY[nt]   = RPF_YY;
+               PF_MM[nt]   = RPF_MM;
+               PF_DD[nt]   = RPF_DD;
+               PF_OP[nt]   = RPF_OP;
+               PF_HI[nt]   = RPF_HI;
+               PF_LO[nt]   = RPF_LO;
+               PF_CL[nt]   = RPF_CL;
+               PF_FH[nt]   = RPF_FH;
+               PF_FL[nt]   = RPF_FL;
+               PF_EH[nt]   = RPF_EH;
+               PF_EL[nt]   = RPF_EL;
+               PF_AE[nt]   = RPF_AE;
+               PF_PE[nt]   = RPF_PE;               
+            } //if (nt<TSDATA_SIZE)
+            // Upcount nt
+            nt++;
+         }  // READING FC_DT DATA RECORDS
+         // Print("Reading ",TPSymbol,"READING FC_PF DATA FILE COMPLETED !!!");
+      }else
+      {
+         PrintFormat("Failed to open %s file, Error code = %d",PF_FileName,GetLastError());
+         Print("Reading FC_PF DataFile ERROR!!!");
+      } // CHECK PF_FILEHANDLE 
+      
+      // CLOSE FC_PF DATA FILE
+      FileClose(PF_FileHandle);         
+//********************************************************************************************************
+      //
+      //   4.5 WRITE FC_PF DATA FILE IF bWriteTS IS TRUE
+      //
+      //********************************************************************************************************
+      if (b_PF==true)
+      {
+             Print("#",nTP," : ",TPSymbol,": 1.1 WRITING FC_PF DATA FILE ...");
+         // First Write to DPF Summary File
+FileWrite (DPF_FileHandle,PF_YY[0],PF_MM[0],PF_DD[0],TP_No[nTP],TP_Code[nTP],TP_CCat[nTP],
+TP_ECat[nTP],TP_CName[nTP],TP_ESName[nTP],TP_ELName[nTP],TP_nD[nTP],DoubleToString(PF_OP[0],
+TP_nD[nTP]),DoubleToString(PF_HI[0],TP_nD[nTP]),DoubleToString(PF_LO[0],TP_nD[nTP]),DoubleToString(
+PF_CL[0],TP_nD[nTP]),DoubleToString(PF_FH[0],TP_nD[nTP]),DoubleToString(PF_FL[0],TP_nD[nTP]),
+DoubleToString(PF_EH[0],5),DoubleToString(PF_EL[0],5),DoubleToString(PF_AE[0],5), 
+DoubleToString(PF_PE[0],5));         
+FileDelete(PF_Directory+"//"+PF_FileName,FILE_COMMON);    
+         ResetLastError();
+         PF_FileHandle   = FileOpen(PF_Directory+"//"+ PF_FileName,FILE_COMMON|FILE_READ|FILE_WRITE|FILE_CSV,',');
+         if(PF_FileHandle!=INVALID_HANDLE)
+         {
+            for (t=0;t<TSDATA_SIZE;t++)
+            {
+               FileWrite(PF_FileHandle,PF_YY[t],PF_MM[t],PF_DD[t], DoubleToString(PF_OP[t],TP_nD[nTP]), 
+DoubleToString(PF_HI[t],TP_nD[nTP]), DoubleToString(PF_LO[t],TP_nD[nTP]), 
+DoubleToString(PF_CL[t],TP_nD[nTP]), DoubleToString(PF_FH[t],TP_nD[nTP]), 
+DoubleToString(PF_FL[t],TP_nD[nTP]),  DoubleToString(PF_EH[t],5),
+DoubleToString(PF_EL[t],5), DoubleToString(PF_AE[t],5), DoubleToString(PF_PE[t],5)); 
+            }          
+         } // PF_FileHandle
+         // CLOSE TIME SERIES DATA FILE
+         FileClose(PF_FileHandle);  
+      } //CHECK bWriteTS                   
