@@ -78,6 +78,8 @@ bool Load_Oscillator_Derivation(){
 		row++;
 		
     }
+
+    fclose(fp);
 }
 
 ////  This function is used to replace the activation function
@@ -323,7 +325,7 @@ void feedforward_neuron(neuron *neuronNode, neuron inputLayer[], int inputLayerS
     neuronNode->states += bias * neuronNode->weight[0];
 
     //calculate output by activationFunction
-    neuronNode->output = activationFunction(neuronNode->states, 2);               
+    neuronNode->output = activationFunction(neuronNode->states, 1);               
     
 }
 
