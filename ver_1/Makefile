@@ -1,5 +1,5 @@
 ffbpn: main.o ffbpn.o
-	gcc -o ffbpn main.o ffbpn.o
+	gcc -o ffbpn.out main.o ffbpn.o
 
 main.o: main.c ffbpn.c
 	gcc -Wall -std=c11 -c main.c ffbpn.c
