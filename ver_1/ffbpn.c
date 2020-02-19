@@ -86,8 +86,6 @@ bool Load_Oscillator_Derivation(){
 
 double Oscillator_activation_func(double input){
 
-    Load_Oscillator();
-
 	int rowIndex = input * 1000;
 	int columnIndex = 0;
 
@@ -106,14 +104,12 @@ double Oscillator_activation_func(double input){
 
 double Oscillator_Derivation_func(double input){
 
-    Load_Oscillator_Derivation();
-
 	int rowIndex = input * 1000;
 
 	if(rowIndex <= 0)
 		return 0.00000075;
 	else if(rowIndex > 1000)
-	    return 0.00000075;
+	    return -0.00000075;
 
 	return Oscillator_Derivation[rowIndex];
 }
@@ -160,11 +156,11 @@ Activation Function Type:
     default:    sigmod
 
 */
-double activationFunction(double x, int type)
+double activationFunction(double x, int activation_type)
 {
     double result;
 
-    switch (type)
+    switch (activation_type)
     {
     case 1:
         result = 1.0 / (1.0 + exp(-1.0 * x));
@@ -310,7 +306,7 @@ Parameter:
 Return:
     void
  */
-void feedforward_neuron(neuron *neuronNode, neuron inputLayer[], int inputLayerSize, double bias)
+void feedforward_neuron(neuron *neuronNode, neuron inputLayer[], int inputLayerSize, double bias, int activation_type)
 {
     //refresh the pervious neuron states for current time calculate
     neuronNode->states = 0.0;
@@ -325,7 +321,7 @@ void feedforward_neuron(neuron *neuronNode, neuron inputLayer[], int inputLayerS
     neuronNode->states += bias * neuronNode->weight[0];
 
     //calculate output by activationFunction
-    neuronNode->output = activationFunction(neuronNode->states, 1);               
+    neuronNode->output = activationFunction(neuronNode->states, activation_type);               
     
 }
 
@@ -347,14 +343,14 @@ void feedforward_neuron(neuron *neuronNode, neuron inputLayer[], int inputLayerS
 void FeedForward(
     neuron input_layer[], neuron hidden_layer[], neuron output_layer[],
     int input_node_num, int hidden_node_num, int output_node_num,int hidden_layer_num,
-    double bias
+    double bias, int activation_type
 )
 {
 
     //for the first hidden layer (input layer --> hidden layer)
     for(int m = 0; m < hidden_node_num; m++)
     {
-        feedforward_neuron(&hidden_layer[m], input_layer, input_node_num, bias);
+        feedforward_neuron(&hidden_layer[m], input_layer, input_node_num, bias, activation_type);
         //pervious[m] = hidden_layer[m];
     }
 
@@ -372,7 +368,7 @@ void FeedForward(
 
         for(int q=n*hidden_node_num; q < (n+1)*hidden_node_num; q++)
         {
-            feedforward_neuron(&hidden_layer[q], pervious, hidden_node_num, bias);
+            feedforward_neuron(&hidden_layer[q], pervious, hidden_node_num, bias, activation_type);
         }
 
     }
@@ -388,7 +384,7 @@ void FeedForward(
 
     for(int o = 0; o < output_node_num; o++)
     {
-        feedforward_neuron(&output_layer[o], pervious, hidden_node_num, bias);
+        feedforward_neuron(&output_layer[o], pervious, hidden_node_num, bias, activation_type);
     }
 
 }
@@ -406,10 +402,24 @@ void FeedForward(
  * Return:
  *  loss:               double (for main function to calculate MSE)
  */
-double backpropagation_neuron_out(neuron *neuronNode, neuron pervious_layer[], int pervious_layer_size, double y, double learningRate, double bias)
+double backpropagation_neuron_out(neuron *neuronNode, neuron pervious_layer[], int pervious_layer_size, double y, double learningRate, double bias, int activation_type)
 {
-    //calculate the error by (y - y_out)*(1 - y_out)*y_out
-    neuronNode->error = neuronNode->output * (1 - neuronNode->output) * (y - neuronNode->output);
+    // Determine the acitvation and choose derivation calculation
+    switch(activation_type)
+    {
+        // Sigmoid
+        case 1: 
+            neuronNode->error = neuronNode->output * (1 - neuronNode->output) * (y - neuronNode->output);
+        // Oscillator derivation (Pending)
+        case 2: 
+            // neuronNode->error = neuronNode->output * (1 - neuronNode->output) * (y - neuronNode->output);
+            neuronNode->error = Oscillator_Derivation_func(neuronNode->states) * (y - neuronNode->output);
+        default:
+            // Derivation for Sigmoid: calculate the error by (y - y_out)*(1 - y_out)*y_out
+            neuronNode->error = neuronNode->output * (1 - neuronNode->output) * (y - neuronNode->output);
+            break;
+    }
+    
 
     // Oscillator Derivation
     // neuronNode->error = neuronNode->output * (1 - neuronNode->output) * (y - neuronNode->output);
@@ -476,7 +486,7 @@ void backpropagation_neuron_hid(neuron *neuronNode, neuron pervious_layer[], int
 double backpropagation(
     neuron input_layer[], neuron hidden_layer[], neuron output_layer[], double y[],
     int input_node_num, int hidden_node_num, int output_node_num, int hidden_layer_num,
-    double learningRate, double bias
+    double learningRate, double bias, int activation_type
 )
 {
     double loss = 0;
@@ -492,7 +502,7 @@ double backpropagation(
     //for output layer neuron to calculate
     for(int m = 0; m < output_node_num; m++)
     {
-        loss = loss + backpropagation_neuron_out(&output_layer[m], pervious, hidden_node_num, y[m], learningRate, bias);
+        loss = loss + backpropagation_neuron_out(&output_layer[m], pervious, hidden_node_num, y[m], learningRate, bias, activation_type);
     }
     free(pervious);
 
@@ -792,7 +802,18 @@ void ffbpn(
     int epochTime
 )
 {
-
+    // Determine the acitvation function
+    // 1. sigmoid
+    // 2. Lee_oscillator
+    int activation_type = 2;
+    
+    if(activation_type=2){
+        printf("CONN Model Load");
+        Load_Oscillator();
+        Load_Oscillator_Derivation();
+    }
+    
+    
     //create the NN model by three kinds of layer
     printf("Creating Neural Network Model...");
     neuron input_layer[input_node_num];
@@ -868,8 +889,8 @@ void ffbpn(
 
             //load the data to input layer
             loadInputLayer(input_layer, input_node_num, input);
-            FeedForward(input_layer, hidden_layer, output_layer, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, bias);
-            cost = backpropagation(input_layer, hidden_layer, output_layer, output, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, learningRate, bias);
+            FeedForward(input_layer, hidden_layer, output_layer, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, bias, activation_type);
+            cost = backpropagation(input_layer, hidden_layer, output_layer, output, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, learningRate, bias, activation_type);
             current_error = cost / (training_num + 1);
 
             printf("\rEpoch times: %d, Training %d/%d data, MSE: %e", epoch, times+1, index, current_error);
@@ -891,7 +912,7 @@ void ffbpn(
     //using the last record to predict new value
     printf("Using the newest data to predict tomorrow value:\n");
     loadInputLayer(input_layer, input_node_num, predict);
-    FeedForward(input_layer, hidden_layer, output_layer, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, bias);
+    FeedForward(input_layer, hidden_layer, output_layer, input_node_num, hidden_node_num, output_node_num, hidden_layer_num, bias, activation_type);
     for(int q = 0; q < output_node_num; q++)
     {
         printf("\t%f", output_layer[q].output);
